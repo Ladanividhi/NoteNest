@@ -1,16 +1,23 @@
+import 'dart:convert';
+
 import 'package:NoteNest/screens/Login.dart';
 import 'package:NoteNest/utils/Constants.dart';
+import 'package:NoteNest/utils/UserModel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CreatePasswordPage extends StatefulWidget {
-  const CreatePasswordPage({super.key});
+  final UserModel user;
+  const CreatePasswordPage({super.key, required this.user});
 
   @override
   State<CreatePasswordPage> createState() => _CreatePasswordPageState();
 }
 
 class _CreatePasswordPageState extends State<CreatePasswordPage> {
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -19,24 +26,47 @@ class _CreatePasswordPageState extends State<CreatePasswordPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  void _submitPassword() {
-    if (_formKey.currentState!.validate()) {
-      if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
-        return;
-      }
-
-      // Proceed with password saving logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password Set Successfully')),
-      );
-
-      // Navigate to home or login page
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
-    }
+  String hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
+
+  void _submitPassword() async {
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (password.isEmpty || confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Both fields are required')),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+
+    final hashedPassword = hashPassword(password);
+
+    await FirebaseFirestore.instance
+        .collection('User')
+        .add(widget.user.toMap(hashedPassword));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Account Created')),
+    );
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+          (Route<dynamic> route) => false,
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {

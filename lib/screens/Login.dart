@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:NoteNest/screens/Dashboard.dart';
 import 'package:NoteNest/screens/SignUp.dart';
 import 'package:NoteNest/utils/Constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -18,16 +23,43 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool rememberMe = false;
 
-  void _tryLogin() {
+  String hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  void _tryLogin() async {
     if (_formKey.currentState!.validate()) {
-      // Proceed with login
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logging in...')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => DashboardPage()),
-      );    }
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final hashedPassword = hashPassword(password);
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('User')
+          .where('email', isEqualTo: email)
+          .where('password', isEqualTo: hashedPassword)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Save rememberMe status
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('rememberMe', rememberMe);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Logged in successfully')),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => DashboardPage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid credentials')),
+        );
+      }
+    }
   }
 
   @override

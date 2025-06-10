@@ -1,5 +1,7 @@
 import 'package:NoteNest/screens/CreatePassword.dart';
 import 'package:NoteNest/utils/Constants.dart';
+import 'package:NoteNest/utils/UserModel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -15,45 +17,61 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
-  final TextEditingController _dobController = TextEditingController();
-  final TextEditingController _cityController = TextEditingController();
-  String? selectedGender;
 
-  void _selectDate(BuildContext context) async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _dobController.text =
-        "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
-      });
-    }
-  }
-
-  void _submitForm() {
-    if (!(_fullNameController.text.isEmpty ||
+  void _submitForm() async {
+    if ((_fullNameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _mobileController.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill required fields.')),
+        const SnackBar(content: Text('Please fill all required fields.')),
       );
       return;
     }
 
     if (_formKey.currentState!.validate()) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const CreatePasswordPage()),
+      final email = _emailController.text.trim();
+
+      //Check if user already exists
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('User')
+          .where('Email', isEqualTo: email)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // User with this email already exists
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User with this email already exists')),
+        );
+        return;
+      }
+
+      // If user doesn't exist, proceed
+      final user = UserModel(
+        fullName: _fullNameController.text.trim(),
+        email: email,
+        mobile: _mobileController.text.trim(),
       );
 
-      // Do registration logic here
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => CreatePasswordPage(user: user)),
+      );
     }
   }
+
+  InputDecoration _inputDecoration(String hint, IconData icon) {
+      return InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: Colors.grey[200],
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+      );
+    }
 
   @override
   Widget build(BuildContext context) {
@@ -122,52 +140,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Gender Dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: DropdownButtonFormField<String>(
-                        value: selectedGender,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          icon: Icon(Icons.wc),
-                          hintText: 'Gender',
-                        ),
-                        items: ['Male', 'Female', 'Other']
-                            .map((gender) => DropdownMenuItem(
-                          value: gender,
-                          child: Text(gender),
-                        ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedGender = value;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Date of Birth
-                    TextFormField(
-                      controller: _dobController,
-                      readOnly: true,
-                      onTap: () => _selectDate(context),
-                      decoration: _inputDecoration('Date of Birth', Icons.calendar_today),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // City
-                    TextFormField(
-                      controller: _cityController,
-                      decoration: _inputDecoration('City', Icons.location_city),
-                    ),
-                    const SizedBox(height: 30),
-
-                    // Register Button
                     SizedBox(
                       width: double.infinity,
                       height: 55,
@@ -195,20 +167,6 @@ class _SignUpPageState extends State<SignUpPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: Icon(icon),
-      filled: true,
-      fillColor: Colors.grey[200],
-      contentPadding: const EdgeInsets.symmetric(vertical: 18),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
       ),
     );
   }
