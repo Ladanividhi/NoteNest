@@ -19,6 +19,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool rememberMe = false;
@@ -37,8 +38,8 @@ class _LoginPageState extends State<LoginPage> {
 
       final querySnapshot = await FirebaseFirestore.instance
           .collection('User')
-          .where('email', isEqualTo: email)
-          .where('password', isEqualTo: hashedPassword)
+          .where('Email', isEqualTo: email)
+          .where('Password', isEqualTo: hashedPassword)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
@@ -124,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _emailController,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Email can’t be empty';
+                            return "Email can't be empty";
                           } else if (!value.contains('@')) {
                             return 'Enter a valid email';
                           }
@@ -146,10 +147,10 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: _passwordController,
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Password can’t be empty';
+                            return "Password can't be empty";
                           }
                           return null;
                         },
@@ -158,11 +159,21 @@ class _LoginPageState extends State<LoginPage> {
                           prefixIcon: const Icon(Icons.lock_outline),
                           filled: true,
                           fillColor: Colors.grey[200],
-                          contentPadding:
-                          const EdgeInsets.symmetric(vertical: 18),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 18),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
                             borderSide: BorderSide.none,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                           ),
                         ),
                       ),
@@ -208,7 +219,7 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 20),
                       RichText(
                         text: TextSpan(
-                          text: 'Don’t have an account? ',
+                          text: "Don't have an account?",
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: Colors.black87,

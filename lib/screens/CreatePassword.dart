@@ -137,7 +137,6 @@ class _CreatePasswordPageState extends State<CreatePasswordPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 25),
 
                     // Confirm Password
