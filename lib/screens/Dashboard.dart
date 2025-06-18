@@ -1,10 +1,10 @@
-import 'package:NoteNest/screens/ContactUs.dart';
 import 'package:NoteNest/screens/AddTask.dart';
+import 'package:NoteNest/screens/CompletedTasks.dart';
 import 'package:NoteNest/screens/EditTasks.dart';
 import 'package:NoteNest/screens/LoginPage.dart';
+import 'package:NoteNest/screens/OngoingTasks.dart';
 import 'package:NoteNest/screens/ProfilePAge.dart';
 import 'package:NoteNest/screens/Settings.dart';
-import 'package:NoteNest/screens/TermsAndCondition.dart';
 import 'package:NoteNest/utils/Constants.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -38,8 +38,7 @@ class _DashboardState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FE),
       drawer: _buildSideDrawer(),
-      body: _buildBody(),
-      bottomNavigationBar: _buildBottomNav(),
+      body: _buildHomeScreen(),
     );
   }
 
@@ -110,15 +109,7 @@ class _DashboardState extends State<DashboardPage> {
               ),
             ),
             _buildDrawerItem(
-              icon: Icons.add_task_rounded,
-              title: 'Add Daily Task',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTaskPage()));
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.add_box_rounded,
+              icon: Icons.add_circle_outlined,
               title: 'Add Task',
               onTap: () {
                 Navigator.pop(context);
@@ -130,23 +121,20 @@ class _DashboardState extends State<DashboardPage> {
               title: 'Edit Tasks',
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const EditTaskPage()));
-                // Navigator.push to your EditTasksPage (create if not yet)
               },
             ),
             _buildDrawerItem(
               icon: Icons.timelapse_rounded,
               title: 'Ongoing Tasks',
               onTap: () {
-                Navigator.pop(context);
-                // Navigator.push to your OngoingTasksPage (create if not yet)
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const OngoingTasksPage()));
               },
             ),
             _buildDrawerItem(
-              icon: Icons.pending_actions_rounded,
-              title: 'Pending Tasks',
+              icon: Icons.done_outline_rounded,
+              title: 'Completed Tasks',
               onTap: () {
-                Navigator.pop(context);
-                // Navigator.push to your PendingTasksPage (create if not yet)
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const CompletedTasksPage()));
               },
             ),
             _buildDrawerItem(
@@ -223,138 +211,6 @@ class _DashboardState extends State<DashboardPage> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         minVerticalPadding: 0,
         dense: true,
-      ),
-    );
-  }
-
-  /// Builds body content based on selected index
-  Widget _buildBody() {
-    switch (_selectedIndex) {
-      case 0:
-        return _buildHomeScreen();
-      case 1:
-        return _buildNotesPage();
-      case 3:
-        return _buildCategoriesPage();
-      case 4:
-        return const ProfilePage();
-      default:
-        return _buildHomeScreen();
-    }
-  }
-
-  Widget _buildNotesPage() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            primary_color.withOpacity(0.1),
-            Colors.white,
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.notes_rounded,
-                size: 60,
-                color: primary_color,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Notes Page",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: primary_color,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Your notes will appear here",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoriesPage() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            primary_color.withOpacity(0.1),
-            Colors.white,
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.category_rounded,
-                size: 60,
-                color: primary_color,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Categories Page",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: primary_color,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Organize your notes by categories",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -532,11 +388,11 @@ class _DashboardState extends State<DashboardPage> {
           Row(
             children: [
               Expanded(
-                child: _buildStatItem('Total Notes', '0', Icons.notes_rounded),
+                child: _buildStatItem('Total Notes', '0', Icons.timelapse_rounded),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildStatItem('Categories', '0', Icons.category_rounded),
+                child: _buildStatItem('Categories', '0', Icons.done_outline_rounded),
               ),
             ],
           ),
@@ -686,84 +542,4 @@ class _DashboardState extends State<DashboardPage> {
     );
   }
 
-  /// Bottom navigation bar
-  Widget _buildBottomNav() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            if (index == 2) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddTaskPage()),
-              );
-            } else {
-              setState(() {
-                _selectedIndex = index;
-              });
-            }
-          },
-          selectedItemColor: primary_color,
-          unselectedItemColor: Colors.grey[500],
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          elevation: 0,
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded, size: 28),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.notes_rounded, size: 26),
-              label: 'Notes',
-            ),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [primary_color, primary_color.withOpacity(0.8)],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: primary_color.withOpacity(0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.add, color: Colors.white, size: 28),
-              ),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.category_rounded, size: 26),
-              label: 'Categories',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded, size: 27),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

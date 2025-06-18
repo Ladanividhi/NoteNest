@@ -22,6 +22,7 @@ class _EditTaskPageState extends State<EditTaskPage> {
 
     return Scaffold(
       backgroundColor: bg_color,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text(
           'Edit Tasks',
@@ -193,296 +194,404 @@ class _EditTaskPageState extends State<EditTaskPage> {
           isDailyTask = true;
         }
       }
-    } else {
-      // Directly open edit alert box without type conversion
+    }
+
+    // Show the Edit Alert Box
+    if (context.mounted) {
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (context) {
           final textTheme = Theme.of(context).textTheme;
 
           return StatefulBuilder(
-            builder:
-                (context, setState) => AlertDialog(
-                  title: const Text('Edit Task'),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: titleController,
-                          decoration: const InputDecoration(labelText: 'Title'),
-                        ),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: noteController,
-                          maxLines: 2,
-                          decoration: const InputDecoration(labelText: 'Notes'),
-                        ),
-                        const SizedBox(height: 10),
-                        DropdownButtonFormField<String>(
-                          value: selectedCategory,
-                          items:
-                              categories.map((cat) {
-                                return DropdownMenuItem(
-                                  value: cat,
-                                  child: Text(cat),
-                                );
-                              }).toList(),
-                          onChanged:
-                              (val) => setState(() => selectedCategory = val!),
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (isDailyTask)
-                          GestureDetector(
-                            onTap: () async {
-                              DateTime? picked = await showDatePicker(
-                                context: context,
-                                initialDate:
-                                    selectedDate ??
-                                    DateTime.now().add(const Duration(days: 1)),
-                                firstDate: DateTime.now().add(
-                                  const Duration(days: 1),
-                                ),
-                                lastDate: DateTime(2100),
-                              );
-                              if (picked != null) {
-                                setState(() => selectedDate = picked);
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    selectedDate != null
-                                        ? DateFormat(
-                                          'MMM d, yyyy',
-                                        ).format(selectedDate!)
-                                        : 'Pick end date',
-                                    style: textTheme.bodyMedium,
-                                  ),
-                                  const Icon(
-                                    Icons.calendar_today,
-                                    size: 18,
-                                    color: primary_color,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 14),
-                        ElevatedButton(
-                          onPressed: () async {
-                            await FirebaseFirestore.instance
-                                .collection('Tasks')
-                                .doc(task.id)
-                                .update({
-                                  'Title': titleController.text,
-                                  'Note':
-                                      noteController.text.isEmpty
-                                          ? null
-                                          : noteController.text,
-                                  'Category': selectedCategory,
-                                  'Date':
-                                      isDailyTask
-                                          ? Timestamp.fromDate(
-                                            selectedDate ??
-                                                DateTime.now().add(
-                                                  const Duration(days: 1),
-                                                ),
-                                          )
-                                          : null,
-                                });
-                            Navigator.pop(context);
-                            Fluttertoast.showToast(
-                              msg: 'Task updated successfully',
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primary_color,
-                            shape: RoundedRectangleBorder(
+            builder: (context, setState) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+                ),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: primary_color.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            child: Icon(
+                              Icons.edit_rounded,
+                              color: primary_color,
+                              size: 15,
+                            ),
                           ),
-                          child: const Text(
-                            'Save',
-                            style: TextStyle(color: Colors.white),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              'Edit Task',
+                              style: textTheme.headlineSmall!.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: primary_color,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Title Field
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: TextField(
+                          controller: titleController,
+                          decoration: InputDecoration(
+                            labelText: 'Task Title',
+                            labelStyle: TextStyle(color: Colors.grey[600]),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            prefixIcon: Icon(Icons.task_alt, color: primary_color, size: 20),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-          );
-        },
-      );
-    }
-
-    // Now show the Edit Alert Box
-    showDialog(
-      context: context,
-      builder: (context) {
-        final textTheme = Theme.of(context).textTheme;
-
-        return StatefulBuilder(
-          builder:
-              (context, setState) => AlertDialog(
-                title: const Text('Edit Task'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Title'),
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: noteController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(labelText: 'Notes'),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        value: selectedCategory,
-                        items:
-                            categories.map((cat) {
-                              return DropdownMenuItem(
-                                value: cat,
-                                child: Text(cat),
-                              );
-                            }).toList(),
-                        onChanged:
-                            (val) => setState(() => selectedCategory = val!),
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
+                      const SizedBox(height: 12),
+                      
+                      // Notes Field
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: TextField(
+                          controller: noteController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Notes (Optional)',
+                            labelStyle: TextStyle(color: Colors.grey[600]),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            prefixIcon: Icon(Icons.note, color: primary_color, size: 20),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
+                      
+                      // Category Dropdown
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedCategory,
+                          items: categories.map((cat) {
+                            return DropdownMenuItem(
+                              value: cat,
+                              child: Text(cat),
+                            );
+                          }).toList(),
+                          onChanged: (val) => setState(() => selectedCategory = val!),
+                          decoration: InputDecoration(
+                            labelText: 'Category',
+                            labelStyle: TextStyle(color: Colors.grey[600]),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            prefixIcon: Icon(Icons.category, color: primary_color, size: 20),
+                          ),
+                          dropdownColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Date Picker (for daily tasks)
                       if (isDailyTask)
                         GestureDetector(
                           onTap: () async {
                             DateTime? picked = await showDatePicker(
                               context: context,
-                              initialDate:
-                                  selectedDate ??
-                                  DateTime.now().add(const Duration(days: 1)),
-                              firstDate: DateTime.now().add(
-                                const Duration(days: 1),
-                              ),
+                              initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                              firstDate: DateTime.now().add(const Duration(days: 1)),
                               lastDate: DateTime(2100),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: ColorScheme.light(
+                                      primary: primary_color,
+                                      onPrimary: Colors.white,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
                             );
                             if (picked != null) {
                               setState(() => selectedDate = picked);
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[200]!),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  selectedDate != null
-                                      ? DateFormat(
-                                        'MMM d, yyyy',
-                                      ).format(selectedDate!)
-                                      : 'Pick end date',
-                                  style: textTheme.bodyMedium,
+                                Icon(Icons.calendar_today, color: primary_color, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    selectedDate != null
+                                        ? DateFormat('MMM d, yyyy').format(selectedDate!)
+                                        : 'Pick end date',
+                                    style: textTheme.bodyMedium!.copyWith(color: Colors.grey[700]),
+                                  ),
                                 ),
-                                const Icon(
-                                  Icons.calendar_today,
-                                  size: 18,
-                                  color: primary_color,
-                                ),
+                                Icon(Icons.arrow_drop_down, color: primary_color),
                               ],
                             ),
                           ),
                         ),
-                      const SizedBox(height: 14),
-                      ElevatedButton(
-                        onPressed: () async {
-                          await FirebaseFirestore.instance
-                              .collection('Tasks')
-                              .doc(task.id)
-                              .update({
-                                'Title': titleController.text,
-                                'Note':
-                                    noteController.text.isEmpty
-                                        ? null
-                                        : noteController.text,
-                                'Category': selectedCategory,
-                                'Date':
-                                    isDailyTask
-                                        ? Timestamp.fromDate(
-                                          selectedDate ??
-                                              DateTime.now().add(
-                                                const Duration(days: 1),
-                                              ),
-                                        )
-                                        : null,
-                              });
-
-                          Fluttertoast.showToast(
-                            msg: 'Task updated successfully',
-                          );
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primary_color,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 24),
+                      
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: Colors.grey[300]!),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: const Text('Save'),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                try {
+                                  await FirebaseFirestore.instance
+                                      .collection('Tasks')
+                                      .doc(task.id)
+                                      .update({
+                                    'Title': titleController.text,
+                                    'Note': noteController.text.isEmpty ? null : noteController.text,
+                                    'Category': selectedCategory,
+                                    'Date': isDailyTask
+                                        ? Timestamp.fromDate(selectedDate ?? DateTime.now().add(const Duration(days: 1)))
+                                        : null,
+                                  });
+                                  
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    Fluttertoast.showToast(
+                                      msg: 'Task updated successfully!',
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    Fluttertoast.showToast(
+                                      msg: 'Error updating task',
+                                      backgroundColor: Colors.red,
+                                      textColor: Colors.white,
+                                    );
+                                  }
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primary_color,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    }
   }
 
   Future<bool> _askConfirmation(String title, String message) async {
     bool confirmed = false;
     await showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('No'),
-              ),
-              TextButton(
-                onPressed: () {
-                  confirmed = true;
-                  Navigator.pop(context);
-                },
-                child: const Text('Yes'),
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: primary_color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.help_outline_rounded,
+                  color: primary_color,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Title
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              
+              // Message
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        confirmed = false;
+                        Navigator.of(context).pop();
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: Text(
+                        'No',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        confirmed = true;
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primary_color,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Yes',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
     return confirmed;
   }

@@ -104,6 +104,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
         'Note': noteController.text.isEmpty ? null : noteController.text,
         'Title': titleController.text,
         'Status': false,
+        'CompletedOn': null,
       };
 
       await FirebaseFirestore.instance.collection('Tasks').add(taskData);
