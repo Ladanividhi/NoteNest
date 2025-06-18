@@ -1,5 +1,13 @@
+import 'package:NoteNest/screens/AboutNoteNest.dart';
+import 'package:NoteNest/screens/ContactUs.dart';
+import 'package:NoteNest/screens/FAQs.dart';
+import 'package:NoteNest/screens/LoginPage.dart';
+import 'package:NoteNest/screens/TermsAndCondition.dart';
+import 'package:NoteNest/utils/Constants.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_switch/flutter_switch.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,170 +20,222 @@ class _SettingsPageState extends State<SettingsPage> {
   bool isDarkMode = false;
   bool notificationsEnabled = true;
 
+  signout() async {
+    await GoogleSignIn().signOut();
+    await FirebaseAuth.instance.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: bg_color,
       appBar: AppBar(
+        backgroundColor: primary_color,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Settings',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         elevation: 0,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge!.color,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _buildSectionTitle("General"),
+          _buildTile(
+            title: 'Manage Tasks',
+            icon: Icons.folder_open_rounded,
+            iconColor: Colors.deepPurple,
+            onTap: () {},
+          ),
+          _buildTile(
+            title: 'Terms & Conditions',
+            icon: Icons.policy_rounded,
+            iconColor: Colors.deepPurple,
+            onTap: () {Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
+            );},
+          ),
+          _buildTile(
+            title: 'FAQs',
+            icon: Icons.question_answer_rounded,
+            iconColor: Colors.deepPurple,
+            onTap: () {Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FAQsPage()),
+            );},
+          ),
+          _buildTile(
+            title: 'Contact Us',
+            icon: Icons.chat_rounded,
+            iconColor: Colors.deepPurple,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ContactUsPage()),
+              );
+            },
+          ),
+          _buildTile(
+            title: 'About NoteNest',
+            icon: Icons.info_outline_rounded,
+            iconColor: Colors.deepPurple,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutNoteNestPage()),
+              );
+            },
+          ),
+          const SizedBox(height: 15),
+          _buildSectionTitle("Preferences"),
+          _buildSwitchTile(
+            title: 'Dark Mode',
+            value: isDarkMode,
+            onToggle: (val) {
+              setState(() {
+                isDarkMode = val;
+              });
+            },
+          ),
+          _buildSwitchTile(
+            title: 'Enable Notifications',
+            value: notificationsEnabled,
+            onToggle: (val) {
+              setState(() {
+                notificationsEnabled = val;
+              });
+            },
+          ),
+          const SizedBox(height: 15),
+          _buildSectionTitle("Data & Security"),
+          _buildTile(
+            title: 'Reset All Data',
+            icon: Icons.delete_outline,
+            iconColor: Colors.redAccent,
+            onTap: () {},
+          ),
+          const SizedBox(height: 30),
+          _buildLogoutButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTile({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Colors.grey[100]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            _buildProfileCard(),
-
-            const SizedBox(height: 24),
-
-            _buildSettingTile(
-              title: 'Dark Mode',
-              trailing: FlutterSwitch(
-                width: 50.0,
-                height: 25.0,
-                valueFontSize: 12.0,
-                toggleSize: 20.0,
-                value: isDarkMode,
-                borderRadius: 30.0,
-                padding: 4.0,
-                activeColor: Colors.deepPurple,
-                onToggle: (val) {
-                  setState(() {
-                    isDarkMode = val;
-                  });
-                },
+            Icon(icon, color: iconColor),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            _buildSettingTile(
-              title: 'Enable Notifications',
-              trailing: Switch(
-                value: notificationsEnabled,
-                onChanged: (value) {
-                  setState(() {
-                    notificationsEnabled = value;
-                  });
-                },
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            _buildSettingTile(
-              title: 'Change Password',
-              trailing: const Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                // navigate to change password page
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            _buildSettingTile(
-              title: 'About NoteNest',
-              trailing: const Icon(Icons.info_outline_rounded),
-              onTap: () {
-                // show about dialog
-                showAboutDialog(
-                  context: context,
-                  applicationName: 'NoteNest',
-                  applicationVersion: '1.0.0',
-                  applicationLegalese: '© 2025 Vidhi',
-                );
-              },
-            ),
-
-            const SizedBox(height: 24),
-
-            _buildLogoutButton(),
+            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildSwitchTile({
+    required String title,
+    required bool value,
+    required Function(bool) onToggle,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [Colors.white, Colors.grey[100]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.deepPurple.shade100,
-            child: const Icon(
-              Icons.person,
-              color: Colors.deepPurple,
-              size: 30,
+          Icon(Icons.tune, color: Colors.deepPurple),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'Your Name',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              Text(
-                'your.email@example.com',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
+          FlutterSwitch(
+            width: 50.0,
+            height: 26.0,
+            toggleSize: 20.0,
+            value: value,
+            borderRadius: 30.0,
+            padding: 4.0,
+            activeColor: Colors.deepPurple,
+            onToggle: onToggle,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSettingTile({
-    required String title,
-    Widget? trailing,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-            if (trailing != null) trailing,
-          ],
-        ),
       ),
     );
   }
@@ -183,7 +243,34 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildLogoutButton() {
     return ElevatedButton.icon(
       onPressed: () {
-        // handle logout
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text("Confirm Logout"),
+              content: const Text("Are you sure you want to log out?"),
+              actions: [
+                TextButton(
+                  child: const Text("Cancel"),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                TextButton(
+                  child: const Text("Yes"),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    signout();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                          (Route<dynamic> route) => false,
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.deepPurple,

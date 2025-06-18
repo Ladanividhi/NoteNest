@@ -1,5 +1,8 @@
+import 'package:NoteNest/screens/ContactUs.dart';
 import 'package:NoteNest/screens/AddDailyTask.dart';
+import 'package:NoteNest/screens/ProfilePAge.dart';
 import 'package:NoteNest/screens/Settings.dart';
+import 'package:NoteNest/screens/TermsAndCondition.dart';
 import 'package:NoteNest/utils/Constants.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,29 +12,51 @@ class DashboardPage extends StatefulWidget {
 
   @override
   State<DashboardPage> createState() => _DashboardState();
-
 }
 
 class _DashboardState extends State<DashboardPage> {
   int _selectedIndex = 0;
   User? user;
-  int totalNotes = 0;
-  int todayNotes = 0;
-  int favoriteNotes = 0;
-  int archivedNotes = 0;
 
   @override
   void initState() {
     super.initState();
     user = FirebaseAuth.instance.currentUser;
-    // Load notes stats function will go here
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bg_color,
-      body: Column(
+      body: _buildBody(),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  /// Builds body content based on selected index
+  Widget _buildBody() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildHomeScreen();
+      case 1:
+        return Center(
+          child: Text("Notes Page", style: TextStyle(fontSize: 22, color: Colors.black)),
+        );
+      case 3:
+        return Center(
+          child: Text("Categories Page", style: TextStyle(fontSize: 22, color: Colors.black)),
+        );
+      case 4:
+        return const ProfilePage();
+      default:
+        return _buildHomeScreen();
+    }
+  }
+
+  /// Home screen UI
+  Widget _buildHomeScreen() {
+    return SingleChildScrollView(
+      child: Column(
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
@@ -61,8 +86,9 @@ class _DashboardState extends State<DashboardPage> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const SettingsPage()),
-                        );                      },
+                          MaterialPageRoute(builder: (_) => const ProfilePage()),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -86,13 +112,14 @@ class _DashboardState extends State<DashboardPage> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          // You can add more home widgets / stats cards here
         ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-
+  /// Bottom navigation bar
   Widget _buildBottomNav() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -115,7 +142,6 @@ class _DashboardState extends State<DashboardPage> {
           currentIndex: _selectedIndex,
           onTap: (index) {
             if (index == 2) {
-              // Navigate to Add Task page
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddDailyTaskPage()),
@@ -124,10 +150,8 @@ class _DashboardState extends State<DashboardPage> {
               setState(() {
                 _selectedIndex = index;
               });
-              // Optionally add navigation logic for other pages here
             }
           },
-
           selectedItemColor: primary_color,
           unselectedItemColor: Colors.grey[500],
           showSelectedLabels: false,
