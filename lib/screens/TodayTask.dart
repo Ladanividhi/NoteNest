@@ -264,9 +264,12 @@ class _TodayTaskPageState extends State<TodayTaskPage> {
                       .where((item) => item != null)
                       .toList();
 
+              // Sort: incomplete first, then completed
               taskCardItems.sort((a, b) {
-                if (a!['isCompleted'] == b!['isCompleted']) return 0;
-                return a['isCompleted'] != null ? -1 : 1; // incomplete first
+                final aCompleted = a!['isCompleted'] == true;
+                final bCompleted = b!['isCompleted'] == true;
+                if (aCompleted == bCompleted) return 0;
+                return aCompleted ? 1 : -1; // incomplete first
               });
 
               if (taskCardItems.isEmpty) {
