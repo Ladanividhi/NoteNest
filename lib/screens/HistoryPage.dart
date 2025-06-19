@@ -831,184 +831,224 @@ class _TaskHistoryPageState extends State<TaskHistoryPage> {
   Widget buildTillNowTasksPage(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      backgroundColor: bg_color,
-      appBar: AppBar(
-        title: const Text(
-          "Task History (Till Now)",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: primary_color,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('Tasks')
-            .where('Id', isEqualTo: user?.uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError)
-            return const Center(child: Text('Error loading tasks.'));
-          if (!snapshot.hasData)
-            return const Center(child: CircularProgressIndicator());
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('Tasks')
+          .where('Id', isEqualTo: user?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError)
+          return const Center(child: Text('Error loading tasks.'));
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
 
-          final allTasks = snapshot.data!.docs;
+        final allTasks = snapshot.data!.docs;
 
-          return FutureBuilder<QuerySnapshot>(
-            future: FirebaseFirestore.instance
-                .collection('TaskCompleted')
-                .where('Id', isEqualTo: user?.uid)
-                .get(),
-            builder: (context, completedSnapshot) {
-              if (completedSnapshot.hasError)
-                return const Center(
-                  child: Text('Error loading completion logs.'),
-                );
-              if (!completedSnapshot.hasData)
-                return const Center(child: CircularProgressIndicator());
-
-              final completedDocs = completedSnapshot.data!.docs;
-
-              final sortedTasks = List.from(allTasks)..sort((a, b) {
-                final aData = a.data() as Map<String, dynamic>;
-                final bData = b.data() as Map<String, dynamic>;
-                final aEnd = aData['EndDate'];
-                final bEnd = bData['EndDate'];
-                final aComp = aData['CompletedOn'];
-                final bComp = bData['CompletedOn'];
-
-                if (aEnd == null && bEnd == null) {
-                  if (aComp == null && bComp == null) return 0;
-                  if (aComp == null) return 1;
-                  if (bComp == null) return -1;
-                  return bComp.toDate().compareTo(aComp.toDate());
-                }
-
-                if (aEnd == null) return 1;
-                if (bEnd == null) return -1;
-                return bEnd.toDate().compareTo(aEnd.toDate());
-              });
-
-              if (sortedTasks.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'No tasks found.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: sortedTasks.length,
-                itemBuilder: (context, index) {
-                  final task = sortedTasks[index];
-                  final data = task.data() as Map<String, dynamic>;
-                  final startTimestamp = data['StartDate'] as Timestamp?;
-                  final endTimestamp = data['EndDate'] as Timestamp?;
-                  final completedOn = data['CompletedOn'] as Timestamp?;
-                  final taskId = task.id;
-                  final isDailyTask = endTimestamp != null;
-                  String dateLabel;
-
-                  if (isDailyTask) {
-                    dateLabel =
-                    'Till ${DateFormat('MMM d, yyyy').format(endTimestamp!.toDate())}';
-                  } else {
-                    dateLabel = completedOn != null
-                        ? DateFormat('MMM d, yyyy').format(completedOn.toDate())
-                        : 'Not Completed';
-                  }
-
-                  final dailyCompletions = completedDocs.where(
-                        (doc) =>
-                    (doc.data() as Map<String, dynamic>)['TaskId'] == taskId,
-                  );
-
-                  final statusText = isDailyTask
-                      ? '✔ Completed ${dailyCompletions.length} times'
-                      : (data['Status'] == true
-                      ? '✔ Completed at ${completedOn != null ? DateFormat('HH:mm, MMM d').format(completedOn.toDate()) : 'Time Unknown'}'
-                      : '❌ Incomplete');
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.white, Colors.grey[100]!],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data['Title'],
-                          style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: primary_color,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Category: ${data['Category']}'),
-                        const SizedBox(height: 6),
-                        Text('Notes: ${data['Note'] ?? '---'}'),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Task Type: ${isDailyTask ? 'Daily Task' : 'One Time'}',
-                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: isDailyTask ? Colors.teal : Colors.orange,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Date: $dateLabel',
-                          style: Theme.of(context).textTheme.bodyMedium!
-                              .copyWith(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          statusText,
-                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: statusText.contains('Incomplete')
-                                ? Colors.red
-                                : Colors.green,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+        return FutureBuilder<QuerySnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('TaskCompleted')
+              .where('Id', isEqualTo: user?.uid)
+              .get(),
+          builder: (context, completedSnapshot) {
+            if (completedSnapshot.hasError)
+              return const Center(
+                child: Text('Error loading completion logs.'),
               );
-            },
-          );
+            if (!completedSnapshot.hasData)
+              return const Center(child: CircularProgressIndicator());
+
+            final completedDocs = completedSnapshot.data!.docs;
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+            final yesterday = today.subtract(const Duration(days: 1));
+
+            // Map<Date, List<Widget>>
+            final Map<DateTime, List<Widget>> dateToCards = {};
+
+            // One-time tasks: group by CompletedOn date
+            final oneTimeTasks = allTasks.where((task) => (task.data() as Map<String, dynamic>)['EndDate'] == null).toList();
+            for (var task in oneTimeTasks) {
+              final data = task.data() as Map<String, dynamic>;
+              final completedOn = data['CompletedOn'] as Timestamp?;
+              if (completedOn != null) {
+                final date = DateTime(completedOn.toDate().year, completedOn.toDate().month, completedOn.toDate().day);
+                dateToCards.putIfAbsent(date, () => []);
+                dateToCards[date]!.add(_buildHistoryCard(context, task, completedDocs, date));
+              }
+            }
+
+            // Daily tasks: for each date between StartDate and EndDate, show the card for that date
+            final dailyTasks = allTasks.where((task) => (task.data() as Map<String, dynamic>)['EndDate'] != null).toList();
+            for (var task in dailyTasks) {
+              final data = task.data() as Map<String, dynamic>;
+              final startTimestamp = data['StartDate'] as Timestamp?;
+              final endTimestamp = data['EndDate'] as Timestamp?;
+              if (startTimestamp == null || endTimestamp == null) continue;
+              DateTime start = DateTime(startTimestamp.toDate().year, startTimestamp.toDate().month, startTimestamp.toDate().day);
+              DateTime end = DateTime(endTimestamp.toDate().year, endTimestamp.toDate().month, endTimestamp.toDate().day);
+              for (DateTime d = end; !d.isBefore(start); d = d.subtract(const Duration(days: 1))) {
+                dateToCards.putIfAbsent(d, () => []);
+                dateToCards[d]!.add(_buildHistoryCard(context, task, completedDocs, d));
+              }
+            }
+
+            // Sort the date keys descending and filter to today or earlier
+            final sortedDateKeys = dateToCards.keys
+                .where((d) => !d.isAfter(today))
+                .toList()
+              ..sort((a, b) => b.compareTo(a));
+
+            if (dateToCards.isEmpty) {
+              return const Center(
+                child: Text(
+                  'No tasks found.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: sortedDateKeys.length,
+              itemBuilder: (context, dateIndex) {
+                final date = sortedDateKeys[dateIndex];
+                String dateLabel;
+                if (date.isAtSameMomentAs(today)) {
+                  dateLabel = 'Today';
+                } else if (date.isAtSameMomentAs(yesterday)) {
+                  dateLabel = 'Yesterday';
+                } else {
+                  dateLabel = DateFormat('MMM d, yyyy').format(date);
+                }
+                final cards = dateToCards[date]!;
+                // For one-time tasks, sort cards by CompletedOn descending
+                // For daily tasks, keep as is (already iterated from end to start)
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        dateLabel,
+                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: primary_color,
+                              fontSize: 18,
+                            ),
+                      ),
+                    ),
+                    ...cards,
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryCard(BuildContext context, DocumentSnapshot task, List<DocumentSnapshot> completedDocs, DateTime forDate) {
+    final data = task.data() as Map<String, dynamic>;
+    final taskId = task.id;
+    final startTimestamp = data['StartDate'] as Timestamp?;
+    final endTimestamp = data['EndDate'] as Timestamp?;
+    final completedOn = data['CompletedOn'] as Timestamp?;
+    final isDailyTask = endTimestamp != null;
+    final taskDateLabel = DateFormat('MMM d, yyyy').format(forDate);
+
+    // Check if this task was completed on `forDate`
+    DocumentSnapshot? completedDoc;
+    try {
+      completedDoc = completedDocs.firstWhere(
+            (doc) {
+          final docData = doc.data() as Map<String, dynamic>;
+          final docDate = (docData['Date'] as Timestamp).toDate();
+          final docDateOnly = DateTime(docDate.year, docDate.month, docDate.day);
+          return docData['TaskId'] == taskId && docDateOnly == forDate;
         },
+      );
+    } catch (e) {
+      completedDoc = null;
+    }
+
+    final statusText = isDailyTask
+        ? (completedDoc != null
+        ? '✔ Completed at ${DateFormat('HH:mm').format((completedDoc.data() as Map<String, dynamic>)['Date'].toDate())}'
+        : '❌ Incomplete')
+        : (data['Status'] == true
+        ? '✔ Completed at ${completedOn != null ? DateFormat('HH:mm, MMM d').format(completedOn.toDate()) : 'Time Unknown'}'
+        : '❌ Incomplete');
+
+    final statusColor = statusText.contains('Incomplete') ? Colors.red : Colors.green;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.white, Colors.grey[100]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data['Title'],
+            style: Theme.of(context).textTheme.titleMedium!.copyWith(
+              fontWeight: FontWeight.bold,
+              color: primary_color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text('Category: ${data['Category']}'),
+          const SizedBox(height: 6),
+          Text('Notes: ${data['Note'] ?? '---'}'),
+          const SizedBox(height: 8),
+          Text(
+            'Task Type: ${isDailyTask ? 'Daily Task' : 'One Time'}',
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDailyTask ? Colors.teal : Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Date: $taskDateLabel',
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            statusText,
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+              fontWeight: FontWeight.w600,
+              color: statusColor,
+            ),
+          ),
+        ],
       ),
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: bg_color,
@@ -1054,7 +1094,6 @@ class _TaskHistoryPageState extends State<TaskHistoryPage> {
         ],
       ),
       body: buildTillNowTasksPage(context),
-
     );
   }
 }
