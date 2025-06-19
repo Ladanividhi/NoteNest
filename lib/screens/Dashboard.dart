@@ -1,6 +1,7 @@
 import 'package:NoteNest/screens/AddTask.dart';
 import 'package:NoteNest/screens/CompletedTasks.dart';
 import 'package:NoteNest/screens/EditTasks.dart';
+import 'package:NoteNest/screens/HistoryPage.dart';
 import 'package:NoteNest/screens/LoginPage.dart';
 import 'package:NoteNest/screens/OngoingTasks.dart';
 import 'package:NoteNest/screens/ProfilePAge.dart';
@@ -89,22 +90,42 @@ class _DashboardState extends State<DashboardPage> {
                 children: [
 
                   const SizedBox(height: 12),
-                  Text(
-                    user?.displayName ?? 'User',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+
+// User Name (clickable)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfilePage()),
+                      );
+                    },
+                    child: Text(
+                      user?.displayName ?? 'User',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
+
                   const SizedBox(height: 4),
-                  Text(
-                    user?.email ?? '',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfilePage()),
+                      );
+                    },
+                    child: Text(
+                      user?.email ?? '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.white70,
+                      ),
                     ),
                   ),
+
                 ],
               ),
             ),
@@ -112,8 +133,7 @@ class _DashboardState extends State<DashboardPage> {
               icon: Icons.add_circle_outlined,
               title: 'Add Task',
               onTap: () {
-                Navigator.pop(context);
-                // Navigator.push to your AddTaskPage (create if not yet)
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTaskPage()));
               },
             ),
             _buildDrawerItem(
@@ -141,8 +161,7 @@ class _DashboardState extends State<DashboardPage> {
               icon: Icons.history_rounded,
               title: 'History',
               onTap: () {
-                Navigator.pop(context);
-                // Navigator.push to your HistoryPage (create if not yet)
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryPage()));
               },
             ),
             _buildDrawerItem(
@@ -160,14 +179,38 @@ class _DashboardState extends State<DashboardPage> {
             ),
             _buildDrawerItem(
               icon: Icons.logout_rounded,
-              title: 'Sign Out',
+              title: 'Logout',
               isDestructive: true,
               onTap: () async {
-                Navigator.of(context).pop();
-                signout();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                      (Route<dynamic> route) => false,
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text("Confirm Logout"),
+                      content: const Text("Are you sure you want to logout?"),
+                      actions: [
+                        TextButton(
+                          child: const Text("Cancel"),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        TextButton(
+                          child: const Text("Yes"),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            signout();
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (context) => const LoginPage(),
+                              ),
+                                  (Route<dynamic> route) => false,
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             ),

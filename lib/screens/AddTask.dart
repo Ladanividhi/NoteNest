@@ -100,10 +100,11 @@ class _AddTaskPageState extends State<AddTaskPage> {
       final taskData = {
         'Category': selectedCategory,
         'Id': user.uid,
-        'Date': selectedDate != null ? Timestamp.fromDate(selectedDate!) : null,
+        'StartDate': Timestamp.now(),
+        'EndDate': selectedDate != null ? Timestamp.fromDate(selectedDate!) : null,
         'Note': noteController.text.isEmpty ? null : noteController.text,
         'Title': titleController.text,
-        'Status': false,
+        'Status': selectedDate != null ? null : false,
         'CompletedOn': null,
       };
 

@@ -46,7 +46,10 @@ class _CompletedTasksPageState extends State<CompletedTasksPage> {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -57,59 +60,186 @@ class _CompletedTasksPageState extends State<CompletedTasksPage> {
 
           // Task list
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('Tasks')
-                  .where('Id', isEqualTo: user?.uid)
-                  .where('Status', isEqualTo: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Error loading tasks.'));
+            child: FutureBuilder<QuerySnapshot>(
+              future:
+                  FirebaseFirestore.instance
+                      .collection('TaskCompleted')
+                      .where('Id', isEqualTo: user?.uid)
+                      .get(),
+              builder: (context, completedSnapshot) {
+                if (completedSnapshot.hasError) {
+                  return const Center(
+                    child: Text('Error loading completed tasks.'),
+                  );
                 }
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (!completedSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
+                final today = DateTime.now();
+                final todayOnly = DateTime(today.year, today.month, today.day);
 
-                var tasks = snapshot.data!.docs.where((task) {
-                  final title = task['Title'].toString().toLowerCase();
-                  final category = task['Category'].toString().toLowerCase();
-                  return title.contains(searchQuery) || category.contains(searchQuery);
-                }).toList();
+                final completedTaskDocs = completedSnapshot.data!.docs;
 
-                // Sort manually descending by Date (daily first, then one-time)
-                tasks.sort((a, b) {
-                  final aDate = a['Date'];
-                  final bDate = b['Date'];
-                  if (aDate == null && bDate == null) return 0;
-                  if (aDate == null) return 1;  // b before a
-                  if (bDate == null) return -1; // a before b
-                  return bDate.toDate().compareTo(aDate.toDate());
-                });
+                final completedTaskIdsToday =
+                    completedTaskDocs
+                        .where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          if (!data.containsKey('Date')) return false;
+                          final completedDate =
+                              (data['Date'] as Timestamp).toDate();
+                          return completedDate.year == today.year &&
+                              completedDate.month == today.month &&
+                              completedDate.day == today.day;
+                        })
+                        .map(
+                          (doc) =>
+                              (doc.data() as Map<String, dynamic>)['TaskId'],
+                        )
+                        .toSet();
 
-                if (tasks.isEmpty) {
-                  return const Center(child: Text('No completed tasks found.'));
-                }
+                // Now fetch all Tasks
+                return StreamBuilder<QuerySnapshot>(
+                  stream:
+                      FirebaseFirestore.instance
+                          .collection('Tasks')
+                          .where('Id', isEqualTo: user?.uid)
+                          .snapshots(),
+                  builder: (context, taskSnapshot) {
+                    if (taskSnapshot.hasError) {
+                      return const Center(child: Text('Error loading tasks.'));
+                    }
+                    if (!taskSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: tasks.length,
-                  itemBuilder: (context, index) {
-                    final task = tasks[index];
-                    return _buildTaskCard(task, textTheme);
+                    var allTasks = taskSnapshot.data!.docs;
+
+                    // Filter completed one-time tasks (Status == true)
+                    var oneTimeCompletedTasks =
+                        allTasks.where((task) {
+                          final data = task.data() as Map<String, dynamic>;
+                          final status = data['Status'];
+                          final endDate = data['EndDate'];
+                          return endDate == null && status == true;
+                        }).toList();
+
+                    // Filter completed daily tasks (StartDate ≤ today ≤ EndDate && completed today)
+                    var dailyCompletedTasks =
+                        allTasks.where((task) {
+                          final data = task.data() as Map<String, dynamic>;
+                          final startTimestamp =
+                              data['StartDate'] as Timestamp?;
+                          final endTimestamp = data['EndDate'] as Timestamp?;
+                          final taskId = task.id;
+
+                          if (startTimestamp == null || endTimestamp == null)
+                            return false;
+
+                          final startDate = DateTime(
+                            startTimestamp.toDate().year,
+                            startTimestamp.toDate().month,
+                            startTimestamp.toDate().day,
+                          );
+                          final endDate = DateTime(
+                            endTimestamp.toDate().year,
+                            endTimestamp.toDate().month,
+                            endTimestamp.toDate().day,
+                          );
+
+                          final isTodayInRange =
+                              (todayOnly.isAtSameMomentAs(startDate) ||
+                                  todayOnly.isAfter(startDate)) &&
+                              (todayOnly.isAtSameMomentAs(endDate) ||
+                                  todayOnly.isBefore(
+                                    endDate.add(const Duration(days: 1)),
+                                  ));
+
+                          final isCompletedToday = completedTaskIdsToday
+                              .contains(taskId);
+
+                          return isTodayInRange && isCompletedToday;
+                        }).toList();
+
+                    // Combine both lists
+                    var completedTasks = [
+                      ...dailyCompletedTasks,
+                      ...oneTimeCompletedTasks,
+                    ];
+
+                    // Apply search
+                    completedTasks =
+                        completedTasks.where((task) {
+                          final title = task['Title'].toString().toLowerCase();
+                          final category =
+                              task['Category'].toString().toLowerCase();
+                          return title.contains(searchQuery) ||
+                              category.contains(searchQuery);
+                        }).toList();
+
+                    // Sort: daily first (by EndDate desc), then one-time
+                    completedTasks.sort((a, b) {
+                      final aDate = a['EndDate'];
+                      final bDate = b['EndDate'];
+                      if (aDate == null && bDate == null) return 0;
+                      if (aDate == null) return 1;
+                      if (bDate == null) return -1;
+                      return bDate.toDate().compareTo(aDate.toDate());
+                    });
+
+                    if (completedTasks.isEmpty) {
+                      return const Center(
+                        child: Text('No completed tasks found.'),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: completedTasks.length,
+                      itemBuilder: (context, index) {
+                        final task = completedTasks[index];
+
+                        DocumentSnapshot? completedDoc;
+                        try {
+                          completedDoc = completedTaskDocs.firstWhere(
+                                (doc) => (doc.data() as Map<String, dynamic>)['TaskId'] == task.id,
+                          );
+                        } catch (e) {
+                          completedDoc = null;
+                        }
+
+
+                        final completedOn = completedDoc != null
+                            ? (completedDoc.data() as Map<String, dynamic>)['Date'] as Timestamp
+                            : null;
+
+                        // 🔻 Pass this into your task card builder
+                        return _buildTaskCard(
+                          task,
+                          Theme.of(context).textTheme,
+                          completedOn,
+                        );
+                      },
+                    );
+
                   },
                 );
               },
             ),
-          )
-
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTaskCard(DocumentSnapshot task, TextTheme textTheme) {
-    final isDailyTask = task['Date'] != null;
+  Widget _buildTaskCard(
+      DocumentSnapshot task,
+      TextTheme textTheme,
+      Timestamp? completedOn,
+      ) {
+    final isDailyTask = task['EndDate'] != null;
+
+    // For one-time task, get CompletedOn from task doc itself
+    final oneTimeCompletedOn = !isDailyTask ? task['CompletedOn'] as Timestamp? : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -132,7 +262,6 @@ class _CompletedTasksPageState extends State<CompletedTasksPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
           Text(
             task['Title'],
             style: textTheme.titleMedium!.copyWith(
@@ -142,21 +271,15 @@ class _CompletedTasksPageState extends State<CompletedTasksPage> {
           ),
           const SizedBox(height: 8),
 
-          // Category
-          Text(
-            'Category: ${task['Category']}',
-            style: textTheme.bodyMedium,
-          ),
+          Text('Category: ${task['Category']}', style: textTheme.bodyMedium),
           const SizedBox(height: 8),
 
-          // Notes
           Text(
             'Notes: ${task['Note'] ?? '---'}',
             style: textTheme.bodyMedium!.copyWith(color: Colors.grey[700]),
           ),
           const SizedBox(height: 8),
 
-          // Task Type
           Text(
             'Task Type: ${isDailyTask ? 'Daily Task' : 'One Time Task'}',
             style: textTheme.bodyMedium!.copyWith(
@@ -165,17 +288,45 @@ class _CompletedTasksPageState extends State<CompletedTasksPage> {
             ),
           ),
 
-          // End Date (if Daily Task)
           if (isDailyTask)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'End Date: ${DateFormat('MMM d, yyyy').format(task['Date'].toDate())}',
+                'End Date: ${DateFormat('MMM d, yyyy').format(task['EndDate'].toDate())}',
                 style: textTheme.bodyMedium!.copyWith(color: Colors.grey[600]),
+              ),
+            ),
+
+          // Daily Task Completed Time (from TaskCompleted table)
+          if (isDailyTask && completedOn != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Completed On: ${DateFormat('HH:mm').format(completedOn.toDate())}',
+                style: textTheme.bodyMedium!.copyWith(
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+          // One Time Task Completed Time (from Tasks table)
+          if (!isDailyTask && oneTimeCompletedOn != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Completed At: ${DateFormat('HH:mm').format(oneTimeCompletedOn.toDate())}',
+                style: textTheme.bodyMedium!.copyWith(
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],
       ),
     );
   }
+
+
+
 }

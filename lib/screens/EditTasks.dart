@@ -35,12 +35,10 @@ class _EditTaskPageState extends State<EditTaskPage> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: StreamBuilder<QuerySnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('Tasks')
-                  .where('Id', isEqualTo: user?.uid)
-                  .where('Status', isEqualTo: false)
-                  .snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection('Tasks')
+              .where('Id', isEqualTo: user?.uid)
+              .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return const Center(child: Text('Error loading tasks.'));
@@ -51,44 +49,118 @@ class _EditTaskPageState extends State<EditTaskPage> {
 
             final tasks = snapshot.data!.docs;
 
-            final dailyTasks =
-                tasks.where((task) => task['Date'] != null).toList();
-            final otherTasks =
-                tasks.where((task) => task['Date'] == null).toList();
+            final today = DateTime.now();
+            final todayStart = DateTime(today.year, today.month, today.day);
+            final todayEnd = todayStart.add(const Duration(days: 1));
 
-            if (tasks.isEmpty) {
-              return const Center(child: Text('No tasks found.'));
-            }
+            return FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('TaskCompleted')
+                  .where('Id', isEqualTo: user?.uid)
+                  .get(),
+              builder: (context, completedSnapshot) {
+                if (completedSnapshot.hasError) {
+                  return const Center(child: Text('Error loading completed tasks.'));
+                }
+                if (!completedSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            return ListView(
-              children: [
-                if (dailyTasks.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Text(
-                      'Daily Tasks',
-                      style: textTheme.titleMedium!.copyWith(
-                        fontWeight: FontWeight.w600,
+                final completedTaskIdsToday = completedSnapshot.data!.docs
+                    .where((doc) {
+                  final date = doc.data().toString().contains('EndDate') ? doc['EndDate'] : null;
+                  if (date == null) return false;
+                  final completedDate = date.toDate();
+                  return completedDate.year == today.year &&
+                      completedDate.month == today.month &&
+                      completedDate.day == today.day;
+                })
+                    .map((doc) => doc['TaskId'])
+                    .toSet();
+
+                final ongoingTasks = tasks.where((task) {
+                  final data = task.data() as Map<String, dynamic>;
+                  final status = data['Status'];
+                  final start = data['StartDate'] as Timestamp?;
+                  final end = data['EndDate'] as Timestamp?;
+                  final taskId = task.id;
+
+                  // One-time task: ongoing if Status == false
+                  if (end == null) {
+                    return status == false;
+                  }
+
+                  // Daily task: ongoing if today's date lies between StartDate and EndDate (inclusive)
+                  if (start != null && end != null) {
+                    final startDate = DateTime(
+                      start.toDate().year,
+                      start.toDate().month,
+                      start.toDate().day,
+                    );
+                    final endDate = DateTime(
+                      end.toDate().year,
+                      end.toDate().month,
+                      end.toDate().day,
+                    );
+
+                    final todayOnly = DateTime(today.year, today.month, today.day);
+
+                    final isInRange = (todayOnly.isAtSameMomentAs(startDate) || todayOnly.isAfter(startDate)) &&
+                        (todayOnly.isAtSameMomentAs(endDate) || todayOnly.isBefore(endDate.add(const Duration(days: 1))));
+
+                    return isInRange;
+                  }
+
+                  return false;
+                }).toList();
+
+
+                if (ongoingTasks.isEmpty) {
+                  return const Center(child: Text('No ongoing tasks found.'));
+                }
+
+                // Separate into daily and one-time for display labels
+                final dailyTasks = ongoingTasks
+                    .where((task) => (task.data() as Map<String, dynamic>)['EndDate'] != null)
+                    .toList();
+                final oneTimeTasks = ongoingTasks
+                    .where((task) => (task.data() as Map<String, dynamic>)['EndDate'] == null)
+                    .toList();
+
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (dailyTasks.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          'Daily Tasks',
+                          style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ...dailyTasks.map((task) => _buildTaskCard(task, textTheme)),
+                    ...dailyTasks.map((task) => _buildTaskCard(task, Theme.of(context).textTheme)),
 
-                if (otherTasks.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 20, bottom: 10),
-                    child: Text(
-                      'One Time Tasks',
-                      style: textTheme.titleMedium!.copyWith(
-                        fontWeight: FontWeight.w600,
+                    if (oneTimeTasks.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20, bottom: 10),
+                        child: Text(
+                          'One Time Tasks',
+                          style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ...otherTasks.map((task) => _buildTaskCard(task, textTheme)),
-              ],
+                    ...oneTimeTasks.map((task) => _buildTaskCard(task, Theme.of(context).textTheme)),
+                  ],
+                );
+              },
             );
           },
-        ),
+        )
+
+
       ),
     );
   }
@@ -127,9 +199,15 @@ class _EditTaskPageState extends State<EditTaskPage> {
                   ),
                 ),
               ),
+              // Edit Icon
               IconButton(
                 icon: const Icon(Icons.edit, color: primary_color),
                 onPressed: () => _showEditDialog(task),
+              ),
+              // Delete Icon
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _confirmDeleteTask(task.id),
               ),
             ],
           ),
@@ -140,11 +218,11 @@ class _EditTaskPageState extends State<EditTaskPage> {
             'Notes: ${task['Note'] ?? '---'}',
             style: textTheme.bodyMedium!.copyWith(color: Colors.grey[700]),
           ),
-          if (task['Date'] != null)
+          if (task['EndDate'] != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'End Date: ${DateFormat('MMM d, yyyy').format(task['Date'].toDate())}',
+                'End Date: ${DateFormat('MMM d, yyyy').format(task['EndDate'].toDate())}',
                 style: textTheme.bodyMedium!.copyWith(color: Colors.grey[600]),
               ),
             ),
@@ -153,12 +231,62 @@ class _EditTaskPageState extends State<EditTaskPage> {
     );
   }
 
+  void _confirmDeleteTask(String taskId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Task'),
+          content: const Text('Are you sure you want to delete this task?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      // Delete task from 'Tasks' collection
+      await FirebaseFirestore.instance.collection('Tasks').doc(taskId).delete();
+
+      // Delete related entries from 'TaskCompleted'
+      final completedDocs = await FirebaseFirestore.instance
+          .collection('TaskCompleted')
+          .where('TaskId', isEqualTo: taskId)
+          .get();
+
+      for (var doc in completedDocs.docs) {
+        await doc.reference.delete();
+      }
+
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: 'Task deleted successfully!',
+        );
+        setState(() {}); // Refresh UI
+      }
+    }
+  }
+
+
   void _showEditDialog(DocumentSnapshot task) async {
     final titleController = TextEditingController(text: task['Title']);
     final noteController = TextEditingController(text: task['Note'] ?? '');
     String selectedCategory = task['Category'];
-    DateTime? selectedDate = task['Date']?.toDate();
-    bool isDailyTask = task['Date'] != null;
+    DateTime? selectedDate = task['EndDate']?.toDate();
+    bool isDailyTask = task['EndDate'] != null;
 
     // First ask about conversion
     bool wantsToConvert = await _askConfirmation(
@@ -169,27 +297,45 @@ class _EditTaskPageState extends State<EditTaskPage> {
     );
 
     if (wantsToConvert) {
+      final now = Timestamp.now();
+
       if (isDailyTask) {
-        // convert to one-time task by nullifying date
-        await FirebaseFirestore.instance
-            .collection('Tasks')
-            .doc(task.id)
-            .update({'Date': null});
+        // Convert Daily → One-Time Task
+        await FirebaseFirestore.instance.collection('Tasks').doc(task.id).update({
+          'StartDate': now,
+          'EndDate': null,
+          'Status': false,
+        });
+
+        // Delete from TaskCompleted where TaskId matches this task.id
+        final completedDocs = await FirebaseFirestore.instance
+            .collection('TaskCompleted')
+            .where('TaskId', isEqualTo: task.id)
+            .get();
+
+        for (var doc in completedDocs.docs) {
+          await doc.reference.delete();
+        }
+
         selectedDate = null;
         isDailyTask = false;
+
       } else {
-        // convert to daily task by picking new date
+        // Convert One-Time → Daily Task
         DateTime? newDate = await showDatePicker(
           context: context,
           initialDate: DateTime.now().add(const Duration(days: 1)),
           firstDate: DateTime.now().add(const Duration(days: 1)),
           lastDate: DateTime(2100),
         );
+
         if (newDate != null) {
-          await FirebaseFirestore.instance
-              .collection('Tasks')
-              .doc(task.id)
-              .update({'Date': Timestamp.fromDate(newDate)});
+          await FirebaseFirestore.instance.collection('Tasks').doc(task.id).update({
+            'StartDate': now,
+            'EndDate': Timestamp.fromDate(newDate),
+            'Status': null,
+          });
+
           selectedDate = newDate;
           isDailyTask = true;
         }
@@ -420,7 +566,7 @@ class _EditTaskPageState extends State<EditTaskPage> {
                                     'Title': titleController.text,
                                     'Note': noteController.text.isEmpty ? null : noteController.text,
                                     'Category': selectedCategory,
-                                    'Date': isDailyTask
+                                    'EndDate': isDailyTask
                                         ? Timestamp.fromDate(selectedDate ?? DateTime.now().add(const Duration(days: 1)))
                                         : null,
                                   });

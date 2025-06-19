@@ -47,7 +47,10 @@ class _OngoingTasksPageState extends State<OngoingTasksPage> {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -59,11 +62,11 @@ class _OngoingTasksPageState extends State<OngoingTasksPage> {
           // Task list
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('Tasks')
-                  .where('Id', isEqualTo: user?.uid)
-                  .where('Status', isEqualTo: false)
-                  .snapshots(),
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('Tasks')
+                      .where('Id', isEqualTo: user?.uid)
+                      .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(child: Text('Error loading tasks.'));
@@ -72,32 +75,126 @@ class _OngoingTasksPageState extends State<OngoingTasksPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                var tasks = snapshot.data!.docs.where((task) {
-                  final title = task['Title'].toString().toLowerCase();
-                  final category = task['Category'].toString().toLowerCase();
-                  return title.contains(searchQuery) || category.contains(searchQuery);
-                }).toList();
+                final allTasks = snapshot.data!.docs;
+                final today = DateTime.now();
+                final todayDateOnly = DateTime(
+                  today.year,
+                  today.month,
+                  today.day,
+                );
 
-                // Sort daily tasks first
-                tasks.sort((a, b) {
-                  final aDate = a['Date'];
-                  final bDate = b['Date'];
-                  if (aDate == null && bDate == null) return 0;
-                  if (aDate == null) return 1;
-                  if (bDate == null) return -1;
-                  return bDate.toDate().compareTo(aDate.toDate());
-                });
+                return FutureBuilder<QuerySnapshot>(
+                  future:
+                      FirebaseFirestore.instance
+                          .collection('TaskCompleted')
+                          .where('Id', isEqualTo: user?.uid)
+                          .get(),
+                  builder: (context, completedSnapshot) {
+                    if (completedSnapshot.hasError) {
+                      return const Center(
+                        child: Text('Error loading completed tasks.'),
+                      );
+                    }
+                    if (!completedSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                if (tasks.isEmpty) {
-                  return const Center(child: Text('No ongoing tasks found.'));
-                }
+                    final completedTaskIdsToday = completedSnapshot.data!.docs
+                        .where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      if (!data.containsKey('Date') || !data.containsKey('TaskId')) return false;
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: tasks.length,
-                  itemBuilder: (context, index) {
-                    final task = tasks[index];
-                    return _buildTaskCard(task, textTheme);
+                      final completedDate = (data['Date'] as Timestamp).toDate();
+                      return completedDate.year == today.year &&
+                          completedDate.month == today.month &&
+                          completedDate.day == today.day;
+                    })
+                        .map((doc) => (doc.data() as Map<String, dynamic>)['TaskId'])
+                        .toSet();
+
+
+
+
+                    var ongoingTasks =
+                        allTasks.where((task) {
+                          final data = task.data() as Map<String, dynamic>;
+                          final status = data['Status'];
+                          final startTimestamp =
+                              data['StartDate'] as Timestamp?;
+                          final endTimestamp = data['EndDate'] as Timestamp?;
+                          final taskId = task.id;
+
+                          final isTaskCompletedToday = completedTaskIdsToday
+                              .contains(taskId);
+
+                          // One-time task: ongoing if Status == false
+                          if (endTimestamp == null) {
+                            return status == false;
+                          }
+
+                          // Daily task: ongoing if today's date is between StartDate and EndDate (inclusive)
+                          if (startTimestamp != null && endTimestamp != null) {
+                            final startDateOnly = DateTime(
+                              startTimestamp.toDate().year,
+                              startTimestamp.toDate().month,
+                              startTimestamp.toDate().day,
+                            );
+                            final endDateOnly = DateTime(
+                              endTimestamp.toDate().year,
+                              endTimestamp.toDate().month,
+                              endTimestamp.toDate().day,
+                            );
+
+                            final isInRange =
+                                (todayDateOnly.isAtSameMomentAs(
+                                      startDateOnly,
+                                    ) ||
+                                    todayDateOnly.isAfter(startDateOnly)) &&
+                                (todayDateOnly.isAtSameMomentAs(endDateOnly) ||
+                                    todayDateOnly.isBefore(
+                                      endDateOnly.add(const Duration(days: 1)),
+                                    ));
+
+                            return isInRange && !isTaskCompletedToday;
+                          }
+
+                          return false;
+                        }).toList();
+
+                    // Apply search
+                    ongoingTasks =
+                        ongoingTasks.where((task) {
+                          final title = task['Title'].toString().toLowerCase();
+                          final category =
+                              task['Category'].toString().toLowerCase();
+                          return title.contains(searchQuery) ||
+                              category.contains(searchQuery);
+                        }).toList();
+
+                    // Sort: Daily tasks first (those with EndDate)
+                    ongoingTasks.sort((a, b) {
+                      final aDate = a['EndDate'];
+                      final bDate = b['EndDate'];
+                      if (aDate == null && bDate == null) return 0;
+                      if (aDate == null) return 1;
+                      if (bDate == null) return -1;
+                      return bDate.toDate().compareTo(aDate.toDate());
+                    });
+
+                    if (ongoingTasks.isEmpty) {
+                      return const Center(
+                        child: Text('No ongoing tasks found.'),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: ongoingTasks.length,
+                      itemBuilder: (context, index) {
+                        final task = ongoingTasks[index];
+                        return _buildTaskCard(task, textTheme);
+                      },
+                    );
                   },
                 );
               },
@@ -161,19 +258,25 @@ class _OngoingTasksPageState extends State<OngoingTasksPage> {
                 const SizedBox(height: 6),
                 Text(
                   'Notes: ${task['Note'] ?? '---'}',
-                  style: textTheme.bodyMedium!.copyWith(color: Colors.grey[700]),
+                  style: textTheme.bodyMedium!.copyWith(
+                    color: Colors.grey[700],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Type: ${task['Date'] != null ? 'Daily Task' : 'One Time Task'}',
-                  style: textTheme.bodyMedium!.copyWith(color: Colors.grey[600]),
+                  'Type: ${task['EndDate'] != null ? 'Daily Task' : 'One Time Task'}',
+                  style: textTheme.bodyMedium!.copyWith(
+                    color: Colors.grey[600],
+                  ),
                 ),
-                if (task['Date'] != null)
+                if (task['EndDate'] != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'End Date: ${DateFormat('MMM d, yyyy').format(task['Date'].toDate())}',
-                      style: textTheme.bodyMedium!.copyWith(color: Colors.grey[600]),
+                      'End Date: ${DateFormat('MMM d, yyyy').format(task['EndDate'].toDate())}',
+                      style: textTheme.bodyMedium!.copyWith(
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ),
               ],
@@ -188,32 +291,72 @@ class _OngoingTasksPageState extends State<OngoingTasksPage> {
   void _showCompleteConfirmation(DocumentSnapshot task) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Mark as Completed'),
-        content: const Text('Are you sure you want to mark this task as completed?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await FirebaseFirestore.instance.collection('Tasks').doc(task.id).update({
-                'Status': true,
-                'CompletedOn': Timestamp.now(),
-              });
-              Fluttertoast.showToast(msg: 'Task marked as completed');
-              setState(() {}); // Refresh screen
-            },
-            child: Text(
-              'Yes',
-              style: TextStyle(color: primary_color, fontWeight: FontWeight.bold),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text('Mark as Completed'),
+            content: const Text(
+              'Are you sure you want to mark this task as completed?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+
+                  final taskDoc =
+                      await FirebaseFirestore.instance
+                          .collection('Tasks')
+                          .doc(task.id)
+                          .get();
+
+                  if (taskDoc.exists) {
+                    final isDailyTask = taskDoc['EndDate'] != null;
+                    final userId = FirebaseAuth.instance.currentUser!.uid;
+                    final currentTime = Timestamp.now();
+
+                    if (isDailyTask) {
+                      // ✅ Only add entry to TaskCompleted collection — no changes to Tasks table
+                      await FirebaseFirestore.instance
+                          .collection('TaskCompleted')
+                          .add({
+                            'TaskId': task.id,
+                            'Id': userId,
+                            'Date': currentTime,
+                          });
+
+                      Fluttertoast.showToast(
+                        msg: 'Task marked as completed for today',
+                      );
+                    } else {
+                      // ✅ For one-time task, update Status and CompletedOn in Tasks collection
+                      await FirebaseFirestore.instance
+                          .collection('Tasks')
+                          .doc(task.id)
+                          .update({'Status': true, 'CompletedOn': currentTime});
+
+                      Fluttertoast.showToast(msg: 'Task marked as completed');
+                    }
+
+                    setState(() {}); // Refresh the list
+                  } else {
+                    Fluttertoast.showToast(msg: 'Task not found!');
+                  }
+                },
+
+                child: Text(
+                  'Yes',
+                  style: TextStyle(
+                    color: primary_color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

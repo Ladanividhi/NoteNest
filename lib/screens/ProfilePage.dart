@@ -48,11 +48,12 @@ class _ProfilePageState extends State<ProfilePage> {
         nameController.text = account.displayName ?? '';
         emailController.text = email;
 
-        var snapshot = await FirebaseFirestore.instance
-            .collection('Users')
-            .where('Email', isEqualTo: email)
-            .limit(1)
-            .get();
+        var snapshot =
+            await FirebaseFirestore.instance
+                .collection('Users')
+                .where('Email', isEqualTo: email)
+                .limit(1)
+                .get();
 
         if (snapshot.docs.isNotEmpty) {
           var doc = snapshot.docs.first;
@@ -93,120 +94,132 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: bg_color,
+        appBar: AppBar(
+          backgroundColor: primary_color,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'Profile',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
-    }
-
-    return Scaffold(
-      backgroundColor: bg_color,
-      appBar: AppBar(
-        backgroundColor: primary_color,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Profile',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
+    } else {
+      return Scaffold(
+        backgroundColor: bg_color,
+        appBar: AppBar(
+          backgroundColor: primary_color,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'Profile',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsPage()),
+                );
+              },
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => SettingsPage()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildProfileCard('Name', nameController, readOnly: true),
-              _buildProfileCard('Email', emailController, readOnly: true),
-              _buildDropdownCard('Gender', genderOptions),
-              _buildProfileCard(
-                'Mobile Number',
-                mobileController,
-                hint: 'Enter 10-digit number',
-                maxLength: 10,
-              ),
-              _buildProfileCard(
-                  'Address', addressController, hint: 'Enter your address', maxLines: 2),
-              _buildProfileCard(
-                'Pincode',
-                pincodeController,
-                hint: 'Enter pincode',
-                maxLength: 6,
-              ),
-
-              const SizedBox(height: 15),
-
-              // Save Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (_formKey.currentState!.validate()) {
-                      try {
-                        await FirebaseFirestore.instance
-                            .collection('Users')
-                            .doc(userId)
-                            .update({
-                          'Gender': gender,
-                          'Mobile': mobileController.text.trim(),
-                          'Address': addressController.text.trim(),
-                          'Pincode': pincodeController.text.trim(),
-                        });
-
-                        Fluttertoast.showToast(msg: 'Profile Updated!');
-                        Navigator.pop(context);
-                      } catch (e) {
-                        Fluttertoast.showToast(
-                          msg: 'Update failed, try again.',
-                        );
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildProfileCard('Name', nameController, readOnly: true),
+                _buildProfileCard('Email', emailController, readOnly: true),
+                _buildDropdownCard('Gender', genderOptions),
+                _buildProfileCard(
+                  'Mobile Number',
+                  mobileController,
+                  hint: 'Enter 10-digit number',
+                  maxLength: 10,
+                ),
+                _buildProfileCard(
+                  'Address',
+                  addressController,
+                  hint: 'Enter your address',
+                  maxLines: 2,
+                ),
+                _buildProfileCard(
+                  'Pincode',
+                  pincodeController,
+                  hint: 'Enter pincode',
+                  maxLength: 6,
+                ),
+                const SizedBox(height: 15),
+                // Save Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        try {
+                          await FirebaseFirestore.instance
+                              .collection('Users')
+                              .doc(userId)
+                              .update({
+                                'Gender': gender,
+                                'Mobile': mobileController.text.trim(),
+                                'Address': addressController.text.trim(),
+                                'Pincode': pincodeController.text.trim(),
+                              });
+                          Fluttertoast.showToast(msg: 'Profile Updated!');
+                          Navigator.pop(context);
+                        } catch (e) {
+                          Fluttertoast.showToast(
+                            msg: 'Update failed, try again.',
+                          );
+                        }
                       }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary_color,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary_color,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 5,
                     ),
-                    elevation: 5,
-                  ),
-
-                  child: const Text(
-                    'Save Changes',
-                    style: TextStyle(fontSize: 18, color: Colors.white),
+                    child: const Text(
+                      'Save Changes',
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   Widget _buildProfileCard(
-      String label,
-      TextEditingController controller, {
-        String? hint,
-        bool readOnly = false,
-        int maxLines = 1,
-        int? maxLength,
-      }) {
+    String label,
+    TextEditingController controller, {
+    String? hint,
+    bool readOnly = false,
+    int maxLines = 1,
+    int? maxLength,
+  }) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),  // reduced from 10 to 6
+      margin: const EdgeInsets.symmetric(vertical: 5), // reduced from 10 to 6
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -240,9 +253,10 @@ class _ProfilePageState extends State<ProfilePage> {
             readOnly: readOnly,
             maxLines: maxLines,
             maxLength: maxLength,
-            keyboardType: (label == 'Mobile Number' || label == 'Pincode')
-                ? TextInputType.number
-                : TextInputType.text,
+            keyboardType:
+                (label == 'Mobile Number' || label == 'Pincode')
+                    ? TextInputType.number
+                    : TextInputType.text,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(color: Colors.grey[500]),
@@ -271,7 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildDropdownCard(String label, List<String> options) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),  // reduced from 10 to 6
+      margin: const EdgeInsets.symmetric(vertical: 6), // reduced from 10 to 6
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -302,14 +316,15 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             value: options.contains(gender) ? gender : null,
-            items: options
-                .map(
-                  (item) => DropdownMenuItem(
-                value: item,
-                child: Text(item, style: const TextStyle(fontSize: 15)),
-              ),
-            )
-                .toList(),
+            items:
+                options
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item,
+                        child: Text(item, style: const TextStyle(fontSize: 15)),
+                      ),
+                    )
+                    .toList(),
             decoration: const InputDecoration(
               border: InputBorder.none,
               isDense: true,
